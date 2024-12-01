@@ -1,86 +1,101 @@
 import pygame
 import time
 import csv
+from dijkstra import unpickle_graph
 
 pygame.init()
-window_size = (640, 640)
-screen = pygame.display.set_mode(window_size)
+WINDOW_SIZE = (640, 640)  
+screen = pygame.display.set_mode(WINDOW_SIZE)
 pygame.display.set_caption("Dijkstra's Algorithm")
 
 # Colors
 BLACK = (0, 0, 0)
 WHITE = (255, 255, 255)
+BLUE = (0, 100, 255)
 RED = (255, 0, 0)
 GREEN = (0, 255, 0)
-BLUE = (0, 0, 255)
-AMBER = (255, 191, 0)
+GRAY = (128, 128, 128)
+
+graph = unpickle_graph()
 
 def scale_coordinates(x, y):
     """Scale graph coordinates to screen coordinates"""
     return (x * 10, y * 10)
 
-def draw_graph(current_node=None, path=None, edges_with_weights=[], node_positions=[]):
-    screen.fill(BLACK)
-    
-    # Draw edges
-    for (u, v, w) in edges_with_weights:
-        start = scale_coordinates(*u)
-        end = scale_coordinates(*v)
-        pygame.draw.line(screen, WHITE, start, end, 1)
-        
-    # Draw nodes
-    for node in node_positions:
-        pos = scale_coordinates(*node)
-        color = BLUE
-        if node == current_node:
-            color = RED
-        elif path and node in path:
-            color = GREEN
-        pygame.draw.circle(screen, color, pos, 4)
-    
-    pygame.display.flip()
+def draw_grid():
+    """Draw a faint grid"""
+    for x in range(0, WINDOW_SIZE[0], 10):
+        pygame.draw.line(screen, GRAY, (x, 0), (x, WINDOW_SIZE[1]), 1)
+    for y in range(0, WINDOW_SIZE[1], 10):
+        pygame.draw.line(screen, GRAY, (0, y), (WINDOW_SIZE[0], y), 1)
 
-if __name__ == "__main__":
-    # Load graph from CSV
-    graph = {}
-    with open('./assets/graphs/graph1.csv', mode='r') as file:
-        reader = csv.reader(file)
-        next(reader)  # Skip header
-        for row in reader:
-            node1 = eval(row[0])
-            node2 = eval(row[1])
-            weight = int(row[2])
-            if node1 not in graph:
-                graph[node1] = []
-            if node2 not in graph:
-                graph[node2] = []
-            graph[node1].append((node2, weight))
-            graph[node2].append((node1, weight))
+
+
+def draw_graph():
+    """Draw the complete graph"""
+    screen.fill(BLACK)
+    draw_grid()
     
-    # Define start and end nodes
-    start_node = (24, 8)
-    end_node = (24, 56)
+    # Draw edges and weights
+    for start_node, edges in graph.items():
+        start_pos = scale_coordinates(*start_node)
+        for end_node, weight in edges:
+            end_pos = scale_coordinates(*end_node)
+            
+            # Draw edge
+            pygame.draw.line(screen, WHITE, start_pos, end_pos, 2)
+            
+            # Draw weight
+            mid_x = (start_pos[0] + end_pos[0]) // 2
+            mid_y = (start_pos[1] + end_pos[1]) // 2
+            font = pygame.font.Font(None, 24)
+            text = font.render(str(weight), True, WHITE)
+            text_rect = text.get_rect(center=(mid_x, mid_y))
+            # Add a small black background for better weight visibility
+            bg_rect = text_rect.copy()
+            bg_rect.inflate_ip(10, 10)
+            pygame.draw.rect(screen, BLACK, bg_rect)
+            screen.blit(text, text_rect)
     
-    # Extract edges with weights and node positions
-    edges_with_weights = []
-    node_positions = set()
-    for node, neighbors in graph.items():
-        node_positions.add(node)
-        for neighbor, weight in neighbors:
-            edges_with_weights.append((node, neighbor, weight))
-            node_positions.add(neighbor)
-    
-    # Draw the graph
-    draw_graph(edges_with_weights=edges_with_weights, node_positions=list(node_positions))
-    
-    # Keep the window open until closed by the user
+    # Draw nodes
+    for node in graph.keys():
+        pos = scale_coordinates(*node)
+        # Start node (24, 8)
+        if node == (24, 8):
+            pygame.draw.circle(screen, GREEN, pos, 6)
+        # End node (24, 56)
+        elif node == (24, 56):
+            pygame.draw.circle(screen, RED, pos, 6)
+        # All other nodes
+        else:
+            pygame.draw.circle(screen, BLUE, pos, 6)
+        
+        # Draw node coordinates
+        # font = pygame.font.Font(None, 20)
+        # text = font.render(f"{node}", True, WHITE)
+        # text_rect = text.get_rect(center=(pos[0], pos[1] - 15))
+        # Add a small black background for better coordinate visibility
+        bg_rect = text_rect.copy()
+        bg_rect.inflate_ip(10, 6)
+        pygame.draw.rect(screen, BLACK, bg_rect)
+        screen.blit(text, text_rect)
+
+def main():
+    clock = pygame.time.Clock()
     running = True
     while running:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 running = False
-        time.sleep(0.1)
+            elif event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_ESCAPE:
+                    running = False
+        
+        draw_graph()
+        pygame.display.flip()
+        clock.tick(60)  # Limit to 60 FPS
     
     pygame.quit()
-    
-    
+
+if __name__ == "__main__":
+    main()
