@@ -1,88 +1,116 @@
 import pygame
 import time
-import csv
-from dijkstra import unpickle_graph
+from collections import namedtuple
+from dijkstra import unpickle_graph, get_stat_weight, DijkstraSimulator
+import colorsys
 
-pygame.init()
-WINDOW_SIZE = (640, 640)  
-screen = pygame.display.set_mode(WINDOW_SIZE)
-pygame.display.set_caption("Dijkstra's Algorithm")
+DijkState = namedtuple('AlgorithmState', ['current_node', 'visited', 'current_path', 'processing_edge'])
 
-# Colors
-BLACK = (0, 0, 0)
-WHITE = (255, 255, 255)
-BLUE = (0, 100, 255)
-RED = (255, 0, 0)
-GREEN = (0, 255, 0)
-GRAY = (128, 128, 128)
+class GraphVisualizer:
+    def __init__(self, graph, window_size=(640, 640), grid_size=64):
+        pygame.init()
+        self.graph = graph
+        self.window_size = window_size
+        self.grid_size = grid_size
+        self.scale = window_size[0] // grid_size
+        self.screen = pygame.display.set_mode(window_size)
+        pygame.display.set_caption("Dijkstra's Algorithm Visualizer")
+        (self.mean_weight, self.weight_deviation) =  get_stat_weight(self.graph)
 
-graph = unpickle_graph()
-
-def scale_coordinates(x, y):
-    """Scale graph coordinates to screen coordinates"""
-    return (x * 10, y * 10)
-
-def draw_grid():
-    """Draw a faint grid"""
-    for x in range(0, WINDOW_SIZE[0], 10):
-        pygame.draw.line(screen, GRAY, (x, 0), (x, WINDOW_SIZE[1]), 1)
-    for y in range(0, WINDOW_SIZE[1], 10):
-        pygame.draw.line(screen, GRAY, (0, y), (WINDOW_SIZE[0], y), 1)
+        # Colors
+        self.BLACK = (0,0,0)
+        self.WHITE = (255, 255, 255)
+        self.BLUE = (0, 100, 255)
+        self.RED = (255, 0, 0)
+        self.GREEN = (0, 255, 0)
+        self.YELLOW = (255, 255, 0)
+        self.GRAY = (128, 128, 128)
+        self.PURPLE = (147, 0, 211)
 
 
-
-def draw_graph():
-    """Draw the complete graph"""
-    screen.fill(BLACK)
-    draw_grid()
+    def scale_coordinates(self, x, y):
+        """Scale graph coordinates to screen coordinates"""
+        return (x * self.scale, y * self.scale)
     
-    # Draw edges and weights
-    for start_node, edges in graph.items():
-        start_pos = scale_coordinates(*start_node)
-        for end_node, weight in edges:
-            end_pos = scale_coordinates(*end_node)
-            
-            # Draw edge
-            pygame.draw.line(screen, WHITE, start_pos, end_pos, 2)
-            
-            # Draw weight
-            mid_x = (start_pos[0] + end_pos[0]) // 2
-            mid_y = (start_pos[1] + end_pos[1]) // 2
-            font = pygame.font.Font(None, 24)
-            text = font.render(str(weight), True, WHITE)
-            text_rect = text.get_rect(center=(mid_x, mid_y))
-            # Add a small black background for better weight visibility
-            bg_rect = text_rect.copy()
-            bg_rect.inflate_ip(10, 10)
-            pygame.draw.rect(screen, BLACK, bg_rect)
-            screen.blit(text, text_rect)
+    def draw_grid(self):
+        """Draw grid lines, we need 64x64 intersections"""
+        for x in range(0, self.window_size[0], self.scale):
+            # 0, 10 ... 640
+            pygame.draw.line(self.screen, self.GRAY, (x, 0), (x, self.window_size[1])) 
+        for y in range(0, self.window_size[1], self.scale):
+            pygame.draw.line(self.screen, self.GRAY, (0, y), (self.window_size[0], y))
     
-    # Draw nodes
-    for node in graph.keys():
-        pos = scale_coordinates(*node)
-        # Start node (24, 8)
-        if node == (24, 8):
-            pygame.draw.circle(screen, GREEN, pos, 6)
-        # End node (24, 56)
-        elif node == (24, 56):
-            pygame.draw.circle(screen, RED, pos, 6)
-        # All other nodes
-        else:
-            pygame.draw.circle(screen, BLUE, pos, 6)
+    def draw_edge(self, start, end, weight, color=None, progress=1.0):
+
+        if color is None:
+            color = self.WHITE # default color is white
+
+        # weight is now a dummy variable. Will be used to adjust brightness of the edge.
+        brightness = max(0.2, min(1.0, 1.0 - (weight - self.mean_weight) / (2 * self.weight_deviation)))
+        color = tuple(int(c * brightness) for c in color)
+
+
+
+        start_pos = self.scale_coordinates(*start)
+        end_pos = self.scale_coordinates(*end)
+        intermediate_pos = None
+
+        if progress < 1.0:
+            x = int(start_pos[0] + (end_pos[0] - start_pos[0]) * progress)
+            y = int(start_pos[1] + (end_pos[1] - start_pos[1]) * progress)
+            intermediate_pos = (x, y)
         
-        # Draw node coordinates
-        # font = pygame.font.Font(None, 20)
-        # text = font.render(f"{node}", True, WHITE)
-        # text_rect = text.get_rect(center=(pos[0], pos[1] - 15))
-        # Add a small black background for better coordinate visibility
-        bg_rect = text_rect.copy()
-        bg_rect.inflate_ip(10, 6)
-        pygame.draw.rect(screen, BLACK, bg_rect)
-        screen.blit(text, text_rect)
+        if intermediate_pos:
+            pygame.draw.line(self.screen, color, start_pos, intermediate_pos)
+            pygame.draw.line(self.screen, self.GRAY, intermediate_pos, end_pos)
+        else:
+            pygame.draw.line(self.screen, color, start_pos, end_pos)
+        
 
+    def draw_frame(self, algorithm_state):
+
+        self.screen.fill(self.BLACK)
+        # self.draw_grid()
+
+        for start,edges in self.graph.items():
+            for end,weight in edges:
+                if algorithm_state.processing_edge == (start, end):
+                    continue # we draw the "background edges" first and do the animations later in another for loop.
+                color = self.PURPLE if algorithm_state.current_path and \
+                       any(p1 == start and p2 == end for p1, p2 in zip(algorithm_state.current_path[:-1], algorithm_state.current_path[1:])) \
+                       else self.WHITE
+                self.draw_edge(start, end, weight, color)
+        
+        if algorithm_state.processing_edge:
+            start, end = algorithm_state.processing_edge
+            self.draw_edge(start, end, 0, self.YELLOW, progress=0.5)
+        
+        start_node = (24, 8)
+        end_node = (24,56)
+
+        for node in self.graph:
+            if node == start_node:
+                color = self.GREEN
+            elif node == end_node:
+                color = self.RED
+            elif node == algorithm_state.current_node:
+                color = self.YELLOW
+            elif node in algorithm_state.visited:
+                color = self.PURPLE
+            else:
+                color = self.BLUE
+            pygame.draw.circle(self.screen, color, self.scale_coordinates(*node), 4)
+
+        pygame.display.flip()
+        
 def main():
+    visualizer = GraphVisualizer(unpickle_graph())
+    simulator = DijkstraSimulator(unpickle_graph())
     clock = pygame.time.Clock()
+
     running = True
+    paused = False
+
     while running:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
@@ -90,12 +118,22 @@ def main():
             elif event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_ESCAPE:
                     running = False
-        
-        draw_graph()
-        pygame.display.flip()
+                elif event.key == pygame.K_SPACE:
+                    paused = not paused
+                elif event.key == pygame.K_r:
+                    simulator.reset()
+
+        if not paused:
+            state = simulator.step()
+            if state:
+                visualizer.draw_frame(state)
+                time.sleep(0.5)  # Control animation speed
+            
         clock.tick(60)  # Limit to 60 FPS
-    
+
     pygame.quit()
+
 
 if __name__ == "__main__":
     main()
+
