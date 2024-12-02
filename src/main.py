@@ -16,6 +16,7 @@ class GraphVisualizer:
         self.screen = pygame.display.set_mode(window_size)
         pygame.display.set_caption("Dijkstra's Algorithm Visualizer")
         (self.mean_weight, self.weight_deviation) =  get_stat_weight(self.graph)
+        self.path_found = False
 
         # Colors
         self.BLACK = (0,0,0)
@@ -76,17 +77,21 @@ class GraphVisualizer:
             for end,weight in edges:
                 if algorithm_state.processing_edge == (start, end):
                     continue # we draw the "background edges" first and do the animations later in another for loop.
-                color = self.PURPLE if algorithm_state.current_path and \
-                       any(p1 == start and p2 == end for p1, p2 in zip(algorithm_state.current_path[:-1], algorithm_state.current_path[1:])) \
-                       else self.WHITE
+                # color = self.PURPLE if algorithm_state.current_path and \
+                #        any(p1 == start and p2 == end for p1, p2 in zip(algorithm_state.current_path[:-1], algorithm_state.current_path[1:])) \
+                #        else self.WHITE
+                if algorithm_state.current_path and \
+                       any(p1 == start and p2 == end for p1, p2 in zip(algorithm_state.current_path[:-1], algorithm_state.current_path[1:])):
+                    color = self.PURPLE
+                    self.path_found = True
+
+                else:
+                    color = self.WHITE
                 self.draw_edge(start, end, weight, color)
         
-        if algorithm_state.processing_edge:
-            start, end = algorithm_state.processing_edge
-            self.draw_edge(start, end, 0, self.YELLOW, progress=0.5)
         
         start_node = (24, 8)
-        end_node = (24,56)
+        end_node = (24, 56)
 
         for node in self.graph:
             if node == start_node:
@@ -100,6 +105,26 @@ class GraphVisualizer:
             else:
                 color = self.BLUE
             pygame.draw.circle(self.screen, color, self.scale_coordinates(*node), 4)
+
+        # if algorithm_state.current_path:
+        #     for start, end in zip(algorithm_state.current_path[:-1], algorithm_state.current_path[1:]):
+        #         self.draw_edge(start, end, 0, self.YELLOW)
+
+        if algorithm_state.processing_edge and not self.path_found:
+            start, end = algorithm_state.processing_edge
+            for i in range (0, 101, 3):
+                progress = i / 100.0
+                self.draw_edge(start, end, 0, self.YELLOW, progress=progress)
+                pygame.display.flip()
+                time.sleep(1/120)
+        
+        if self.path_found:
+            start, end = algorithm_state.processing_edge
+            self.draw_edge(start, end, 0, self.WHITE)
+            pygame.draw.circle(self.screen, self.PURPLE, self.scale_coordinates(*start), 4)
+            pygame.draw.circle(self.screen, self.RED, self.scale_coordinates(*end), 4)
+
+        
 
         pygame.display.flip()
         
@@ -127,9 +152,8 @@ def main():
             state = simulator.step()
             if state:
                 visualizer.draw_frame(state)
-                time.sleep(0.5)  # Control animation speed
             
-        clock.tick(60)  # Limit to 60 FPS
+        clock.tick(120)  #  120 FPS
 
     pygame.quit()
 

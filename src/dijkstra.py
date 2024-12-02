@@ -17,7 +17,7 @@ graph = {
     (48, 24): [((40, 32), 5), ((56, 24), 4)],
     (32, 32): [((40, 32), 4), ((24, 44), 6), ((32, 40), 7)],  # Adjusted
     (40, 32): [((32, 40), 7)],
-    (24, 44): [((32, 40), 5), ((16, 48), 6), ((40, 32), 8)],  # Adjusted
+    (24, 44): [((32, 40), 5), ((16, 48), 12), ((40, 32), 8)],  # Adjusted
     (32, 40): [((40, 48), 8), ((16, 48), 12)],
     (16, 48): [((24, 56), 7)],
     (40, 48): [((24, 56), 9)],
@@ -88,6 +88,8 @@ class DijkstraSimulator:
                 path.append(current)
                 current = self.previous[current]
             self.current_path = path[::-1]
+            print(self.current_path)
+            print("Path found")
             return self.get_state()
 
         # Process neighbors
