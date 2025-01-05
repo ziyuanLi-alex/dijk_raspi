@@ -54,7 +54,7 @@ def main():
             if state:
                 visualizer.draw_frame(state)
             
-        clock.tick(60)  #  120 FPS
+        clock.tick(120)  #  120 FPS
 
     pygame.quit()
 

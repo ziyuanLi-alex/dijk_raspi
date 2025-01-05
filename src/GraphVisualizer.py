@@ -1,11 +1,18 @@
 import pygame
 import time
-from collections import namedtuple
-from dijkstra import unpickle_graph, get_stat_weight, DijkstraSimulator
+from dijkstra import unpickle_graph, get_stat_weight
+from pathlib import Path
+import sys
+
+ROOT_DIR = Path(__file__).resolve().parent.parent
+sys.path.append(str(ROOT_DIR))
+from led_lib.rgbmatrix import RGBMatrix, RGBMatrixOptions
+
 
 class GraphVisualizer:
     def __init__(self, graph, start_node, end_node,
-                 window_size=(640, 640), grid_size=64):
+                 window_size=(640, 640), grid_size=64,
+                 padding=10):
         pygame.init()
         self.graph = graph
         self.window_size = window_size
@@ -15,12 +22,12 @@ class GraphVisualizer:
         self.start_node = start_node
         self.end_node = end_node
 
-        self.screen = pygame.display.set_mode(window_size)
+        self.padding = padding
+        self.drawing_area = (window_size[0] + 2 * padding, 
+                           window_size[1] + 2 * padding)
+        self.scale = self.drawing_area[0] // grid_size
+        self.screen = pygame.display.set_mode(self.drawing_area)
         pygame.display.set_caption("Dijkstra's Algorithm Visualizer")
-
-        # 探索路径的动画状态
-        self.exploring_progress = 0
-        self.exploring_speed = 0.5
 
         self.path_found = False
 
@@ -34,6 +41,19 @@ class GraphVisualizer:
         self.GRAY = (128, 128, 128)
         self.PURPLE = (147, 0, 211)
         self.ORANGE = (255, 165, 0)  # 用于显示探索路径
+
+        # LED矩阵初始化
+        self.options = RGBMatrixOptions()
+        self.options.rows = 32
+        self.options.chain_length = 1
+        self.options.parallel = 1
+        self.options.hardware_mapping = 'regular'
+        self.matrix = RGBMatrix(options=self.options)
+
+        max_x = max(node[0] for node in graph.keys())
+        max_y = max(node[1] for node in graph.keys())
+        self.led_scale_x = (self.matrix.width - 4) / max_x
+        self.led_scale_y = (self.matrix.height - 4) / max_y
 
     def draw_exploring_path(self, current_node, previous):
         """绘制正在探索的路径"""
@@ -54,7 +74,7 @@ class GraphVisualizer:
 
     def scale_coordinates(self, x, y):
         """Scale graph coordinates to screen coordinates"""
-        return (x * self.scale, y * self.scale)
+        return (x * self.scale + self.padding, y * self.scale + self.padding)
     
     def draw_edge(self, start, end, weight, color=None, progress=1.0):
 
@@ -93,14 +113,9 @@ class GraphVisualizer:
 
         # 绘制路径
         if algorithm_state.current_path:
-            # 如果找到最终路径，绘制最终路径
-            path = algorithm_state.current_path
-            for i in range(len(path) - 1):
-                self.draw_edge(path[i], path[i+1], 0, self.PURPLE)
-                pygame.display.flip()
-                # time.sleep(0.3)
-            # self.draw_final_path(path)
             self.path_found = True
+
+
         elif algorithm_state.current_node:
             # 否则绘制探索路径
             self.draw_exploring_path(
@@ -117,7 +132,7 @@ class GraphVisualizer:
             elif node == algorithm_state.current_node:
                 color = self.YELLOW
             elif node in algorithm_state.visited:
-                color = self.ORANGE if not self.path_found else self.PURPLE
+                color = self.ORANGE
             else:
                 color = self.BLUE
             pygame.draw.circle(self.screen, color, self.scale_coordinates(*node), 4)
@@ -126,16 +141,20 @@ class GraphVisualizer:
         if algorithm_state.processing_edge:
             start, end = algorithm_state.processing_edge
             if not self.path_found:
-                for i in range(0, 101, 20):
+                for i in range(0, 101, 30):
                     progress = i / 100.0
                     self.draw_edge(start, end, 0, self.YELLOW, progress=progress)
                     pygame.display.flip()
                     # time.sleep(1/120)
-            else:
-                if algorithm_state.current_path and \
-                any(p1 == start and p2 == end for p1, p2 in zip(algorithm_state.current_path[:-1], algorithm_state.current_path[1:])):
-                    self.draw_edge(start, end, 0, self.PURPLE)
-                else:
-                    self.draw_edge(start, end, 0, self.WHITE)
 
+        if self.path_found:
+            # 只绘制最终状态
+            path = algorithm_state.current_path
+            self.draw_edge(algorithm_state.processing_edge[0], algorithm_state.processing_edge[1], 0, self.WHITE)
+            pygame.display.flip()
+            for i in range(len(path) - 1):
+                self.draw_edge(path[i], path[i+1], 0, self.PURPLE)
+                pygame.display.flip()
+            return
+        
         pygame.display.flip()

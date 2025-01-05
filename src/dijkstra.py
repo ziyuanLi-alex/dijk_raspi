@@ -79,6 +79,7 @@ class DijkstraSimulator:
             
 
     def step(self):
+        # print("stepping")
         if not self.pq:
             return None # if there is no more nodes to visit, return None
         current_distance, current_node = heapq.heappop(self.pq)
