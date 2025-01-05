@@ -10,7 +10,7 @@ ROOT_DIR = Path(__file__).resolve().parent.parent
 sys.path.append(str(ROOT_DIR))
 
 
-DijkState = namedtuple('AlgorithmState', ['current_node', 'visited', 'current_path', 'processing_edge'])
+DijkState = namedtuple('AlgorithmState', ['current_node', 'visited', 'current_path', 'processing_edge', 'distances', 'previous'])
 
 
 graph = {
@@ -70,7 +70,9 @@ class DijkstraSimulator:
             current_node=self.current_node,
             visited=self.visited,
             current_path=self.current_path,
-            processing_edge=self.processing_edge
+            processing_edge=self.processing_edge,
+            distances=self.distances,
+            previous=self.previous
         )
 
 

@@ -21,6 +21,10 @@ class GraphVisualizer:
         self.screen = pygame.display.set_mode(window_size)
         pygame.display.set_caption("Dijkstra's Algorithm Visualizer")
 
+        # 探索路径的动画状态
+        self.exploring_progress = 0
+        self.exploring_speed = 0.04
+
         self.path_found = False
 
         # Colors
@@ -32,7 +36,34 @@ class GraphVisualizer:
         self.YELLOW = (255, 255, 0)
         self.GRAY = (128, 128, 128)
         self.PURPLE = (147, 0, 211)
+        self.ORANGE = (255, 165, 0)  # 用于显示探索路径
 
+    def draw_exploring_path(self, current_node, previous):
+        """绘制正在探索的路径"""
+        if not current_node:
+            return
+            
+        # 构建从当前节点到起点的路径
+        exploring_path = []
+        current = current_node
+        while current is not None:
+            exploring_path.append(current)
+            current = previous.get(current)
+        exploring_path.reverse()
+        
+        # 绘制探索路径
+        for i in range(len(exploring_path) - 1):
+            if i < len(exploring_path) - 2:
+                self.draw_edge(exploring_path[i], exploring_path[i+1], 0, self.ORANGE)
+            else:
+                # 最后一段使用动画效果
+                self.draw_edge(exploring_path[i], exploring_path[i+1], 0, 
+                             self.ORANGE, progress=self.exploring_progress)
+                
+        # 更新探索动画进度
+        self.exploring_progress += self.exploring_speed
+        if self.exploring_progress >= 1.0:
+            self.exploring_progress = 0
 
     def scale_coordinates(self, x, y):
         """Scale graph coordinates to screen coordinates"""
@@ -66,18 +97,31 @@ class GraphVisualizer:
     def draw_frame(self, algorithm_state):
         self.screen.fill(self.BLACK)
 
+        # 绘制基础图形
         for start, edges in self.graph.items():
             for end, weight in edges:
                 if algorithm_state.processing_edge == (start, end):
                     continue
                 self.draw_edge(start, end, weight, self.WHITE)
 
+        # 绘制路径
         if algorithm_state.current_path:
+            # 如果找到最终路径，绘制最终路径
             path = algorithm_state.current_path
             for i in range(len(path) - 1):
                 self.draw_edge(path[i], path[i+1], 0, self.PURPLE)
+                pygame.display.flip()
+                time.sleep(0.3)
+            # self.draw_final_path(path)
             self.path_found = True
-            
+        elif algorithm_state.current_node:
+            # 否则绘制探索路径
+            self.draw_exploring_path(
+                algorithm_state.current_node,
+                algorithm_state.previous
+            )
+
+        # 绘制节点
         for node in self.graph:
             if node == self.start_node:
                 color = self.GREEN
@@ -86,22 +130,21 @@ class GraphVisualizer:
             elif node == algorithm_state.current_node:
                 color = self.YELLOW
             elif node in algorithm_state.visited:
-                color = self.PURPLE
+                color = self.ORANGE if not self.path_found else self.PURPLE
             else:
                 color = self.BLUE
             pygame.draw.circle(self.screen, color, self.scale_coordinates(*node), 4)
 
+        # 处理当前正在探索的边
         if algorithm_state.processing_edge:
             start, end = algorithm_state.processing_edge
             if not self.path_found:
-                # 动画显示正在处理的边
                 for i in range(0, 101, 3):
                     progress = i / 100.0
                     self.draw_edge(start, end, 0, self.YELLOW, progress=progress)
                     pygame.display.flip()
                     time.sleep(1/120)
             else:
-                # 如果这条边是路径的一部分，用紫色绘制
                 if algorithm_state.current_path and \
                 any(p1 == start and p2 == end for p1, p2 in zip(algorithm_state.current_path[:-1], algorithm_state.current_path[1:])):
                     self.draw_edge(start, end, 0, self.PURPLE)
@@ -110,14 +153,11 @@ class GraphVisualizer:
 
         pygame.display.flip()
 
-
-        
-        
         
 def main():
     # 图结构
     try:
-        graph_manager = GraphManager.load_from_file("./assets/graphs/generated_graph.pkl")
+        graph_manager = GraphManager.load_from_file("./assets/graphs/graph2.pkl")
     except (FileNotFoundError, ValueError):
         print("No graph found, generating new graph")
         graph_manager = GraphManager()

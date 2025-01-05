@@ -8,7 +8,7 @@ import networkx as nx
 
 
 class GraphManager:
-    def __init__(self, width: int = 64, height: int = 64, step: int = 8):
+    def __init__(self, width: int = 64, height: int = 64, step: int = 8, start_node = (0,0), end_node=(64,64)):
         """初始化图结构。
 
     Args:
@@ -28,8 +28,8 @@ class GraphManager:
         self.step = step
         self.graph = {}  # 实际初始化
         self.nodes = set()
-        self.start_node = (24, 8)
-        self.end_node = (24, 56)
+        self.start_node = start_node
+        self.end_node = end_node
         # self.mean_weight = 0
         # self.weight_deviation = 0
 
@@ -61,8 +61,8 @@ class GraphManager:
         """Generate uniformly distributed nodes in a grid pattern."""
         self.nodes = {
             (x, y) 
-            for x in range(0, self.width, self.step)
-            for y in range(0, self.height, self.step)
+            for x in range(0, self.width+self.step, self.step)
+            for y in range(0, self.height+self.step, self.step)
         }
         self.graph = {node: [] for node in self.nodes}
 
@@ -306,8 +306,8 @@ def validate_hardcode():
 def validate_generation():
     gm = GraphManager(width=64, height=64, step=8)
 
-    gm.end_node = (56, 56)
-    gm.start_node = (8,0)
+    gm.end_node = (64, 64)
+    gm.start_node = (0,0)
 
     # gm._generate_nodes()
 
