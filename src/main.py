@@ -2,20 +2,25 @@ import pygame
 import time
 from collections import namedtuple
 from dijkstra import unpickle_graph, get_stat_weight, DijkstraSimulator
-import colorsys
+from GraphManager import GraphManager
 
 DijkState = namedtuple('AlgorithmState', ['current_node', 'visited', 'current_path', 'processing_edge'])
 
 class GraphVisualizer:
-    def __init__(self, graph, window_size=(640, 640), grid_size=64):
+    def __init__(self, graph, start_node, end_node,
+                 window_size=(640, 640), grid_size=64):
         pygame.init()
         self.graph = graph
         self.window_size = window_size
         self.grid_size = grid_size
         self.scale = window_size[0] // grid_size
+        (self.mean_weight, self.weight_deviation) = get_stat_weight(self.graph)
+        self.start_node = start_node
+        self.end_node = end_node
+
         self.screen = pygame.display.set_mode(window_size)
         pygame.display.set_caption("Dijkstra's Algorithm Visualizer")
-        (self.mean_weight, self.weight_deviation) =  get_stat_weight(self.graph)
+
         self.path_found = False
 
         # Colors
@@ -33,24 +38,14 @@ class GraphVisualizer:
         """Scale graph coordinates to screen coordinates"""
         return (x * self.scale, y * self.scale)
     
-    def draw_grid(self):
-        """Draw grid lines, we need 64x64 intersections"""
-        for x in range(0, self.window_size[0], self.scale):
-            # 0, 10 ... 640
-            pygame.draw.line(self.screen, self.GRAY, (x, 0), (x, self.window_size[1])) 
-        for y in range(0, self.window_size[1], self.scale):
-            pygame.draw.line(self.screen, self.GRAY, (0, y), (self.window_size[0], y))
-    
     def draw_edge(self, start, end, weight, color=None, progress=1.0):
 
         if color is None:
             color = self.WHITE # default color is white
 
-        # weight is now a dummy variable. Will be used to adjust brightness of the edge.
+        # Weight Will be used to adjust brightness of the edge.
         brightness = max(0.2, min(1.0, 1.0 - (weight - self.mean_weight) / (2 * self.weight_deviation)))
         color = tuple(int(c * brightness) for c in color)
-
-
 
         start_pos = self.scale_coordinates(*start)
         end_pos = self.scale_coordinates(*end)
@@ -69,34 +64,24 @@ class GraphVisualizer:
         
 
     def draw_frame(self, algorithm_state):
-
         self.screen.fill(self.BLACK)
-        # self.draw_grid()
 
-        for start,edges in self.graph.items():
-            for end,weight in edges:
+        for start, edges in self.graph.items():
+            for end, weight in edges:
                 if algorithm_state.processing_edge == (start, end):
-                    continue # we draw the "background edges" first and do the animations later in another for loop.
-                # color = self.PURPLE if algorithm_state.current_path and \
-                #        any(p1 == start and p2 == end for p1, p2 in zip(algorithm_state.current_path[:-1], algorithm_state.current_path[1:])) \
-                #        else self.WHITE
-                if algorithm_state.current_path and \
-                       any(p1 == start and p2 == end for p1, p2 in zip(algorithm_state.current_path[:-1], algorithm_state.current_path[1:])):
-                    color = self.PURPLE
-                    self.path_found = True
+                    continue
+                self.draw_edge(start, end, weight, self.WHITE)
 
-                else:
-                    color = self.WHITE
-                self.draw_edge(start, end, weight, color)
-        
-        
-        start_node = (24, 8)
-        end_node = (24, 56)
-
+        if algorithm_state.current_path:
+            path = algorithm_state.current_path
+            for i in range(len(path) - 1):
+                self.draw_edge(path[i], path[i+1], 0, self.PURPLE)
+            self.path_found = True
+            
         for node in self.graph:
-            if node == start_node:
+            if node == self.start_node:
                 color = self.GREEN
-            elif node == end_node:
+            elif node == self.end_node:
                 color = self.RED
             elif node == algorithm_state.current_node:
                 color = self.YELLOW
@@ -106,33 +91,55 @@ class GraphVisualizer:
                 color = self.BLUE
             pygame.draw.circle(self.screen, color, self.scale_coordinates(*node), 4)
 
-        # if algorithm_state.current_path:
-        #     for start, end in zip(algorithm_state.current_path[:-1], algorithm_state.current_path[1:]):
-        #         self.draw_edge(start, end, 0, self.YELLOW)
-
-        if algorithm_state.processing_edge and not self.path_found:
+        if algorithm_state.processing_edge:
             start, end = algorithm_state.processing_edge
-            for i in range (0, 101, 3):
-                progress = i / 100.0
-                self.draw_edge(start, end, 0, self.YELLOW, progress=progress)
-                pygame.display.flip()
-                time.sleep(1/120)
-        
-        if self.path_found:
-            start, end = algorithm_state.processing_edge
-            self.draw_edge(start, end, 0, self.WHITE)
-            pygame.draw.circle(self.screen, self.PURPLE, self.scale_coordinates(*start), 4)
-            pygame.draw.circle(self.screen, self.RED, self.scale_coordinates(*end), 4)
-
-        
+            if not self.path_found:
+                # 动画显示正在处理的边
+                for i in range(0, 101, 3):
+                    progress = i / 100.0
+                    self.draw_edge(start, end, 0, self.YELLOW, progress=progress)
+                    pygame.display.flip()
+                    time.sleep(1/120)
+            else:
+                # 如果这条边是路径的一部分，用紫色绘制
+                if algorithm_state.current_path and \
+                any(p1 == start and p2 == end for p1, p2 in zip(algorithm_state.current_path[:-1], algorithm_state.current_path[1:])):
+                    self.draw_edge(start, end, 0, self.PURPLE)
+                else:
+                    self.draw_edge(start, end, 0, self.WHITE)
 
         pygame.display.flip()
+
+
+        
+        
         
 def main():
-    visualizer = GraphVisualizer(unpickle_graph())
-    simulator = DijkstraSimulator(unpickle_graph())
-    clock = pygame.time.Clock()
+    # 图结构
+    try:
+        graph_manager = GraphManager.load_from_file("./assets/graphs/generated_graph.pkl")
+    except (FileNotFoundError, ValueError):
+        print("No graph found, generating new graph")
+        graph_manager = GraphManager()
+        graph_manager.generate_new_graph()
+        graph_manager.save_to_file("./assets/graphs/generated_graph.pkl")
+    
+    graph = graph_manager.get_graph()
+    start_node, end_node = graph_manager.get_endpoints()
+    
+    visualizer = GraphVisualizer(
+        graph=graph,
+        start_node=start_node,
+        end_node=end_node
+    )
+    simulator = DijkstraSimulator(
+        graph=graph,
+        start_node=start_node,
+        end_node=end_node
+    )
 
+    # 主循环
+    clock = pygame.time.Clock()
     running = True
     paused = False
 
@@ -145,8 +152,6 @@ def main():
                     running = False
                 elif event.key == pygame.K_SPACE:
                     paused = not paused
-                elif event.key == pygame.K_r:
-                    simulator.reset()
 
         if not paused:
             state = simulator.step()

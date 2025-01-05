@@ -3,6 +3,12 @@ import heapq
 import pickle
 import numpy as np
 from collections import namedtuple
+from pathlib import Path
+import sys
+
+ROOT_DIR = Path(__file__).resolve().parent.parent
+sys.path.append(str(ROOT_DIR))
+
 
 DijkState = namedtuple('AlgorithmState', ['current_node', 'visited', 'current_path', 'processing_edge'])
 
@@ -134,7 +140,7 @@ def pickle_graph(graph, filename='./assets/graphs/graph1.pkl'):
     with open(filename, 'wb') as file:
         pickle.dump(graph, file)
     
-def unpickle_graph(filename='./assets/graphs/graph1.pkl'):
+def unpickle_graph(filename='./assets/graphs/graph0.pkl'):
     with open(filename, 'rb') as file:
         graph = pickle.load(file)
     return graph
