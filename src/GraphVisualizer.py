@@ -12,7 +12,8 @@ from led_lib.rgbmatrix import RGBMatrix, RGBMatrixOptions
 class GraphVisualizer:
     def __init__(self, graph, start_node, end_node,
                  window_size=(640, 640), grid_size=64,
-                 padding=10):
+                 padding=10,
+                 LED_width=64, LED_height=64):
         pygame.init()
         self.graph = graph
         self.window_size = window_size
@@ -41,12 +42,15 @@ class GraphVisualizer:
         self.GRAY = (128, 128, 128)
         self.PURPLE = (147, 0, 211)
         self.ORANGE = (255, 165, 0)  # 用于显示探索路径
+        self.WHITE_DIM = (100, 100, 100)  
 
         # LED矩阵初始化
         self.options = RGBMatrixOptions()
-        self.options.rows = 32
+        self.options.rows = 64
         self.options.chain_length = 1
         self.options.parallel = 1
+        self.options.rows = 64
+        self.options.cols = 64
         self.options.hardware_mapping = 'regular'
         self.matrix = RGBMatrix(options=self.options)
 
@@ -75,6 +79,35 @@ class GraphVisualizer:
     def scale_coordinates(self, x, y):
         """Scale graph coordinates to screen coordinates"""
         return (x * self.scale + self.padding, y * self.scale + self.padding)
+    
+    def pygame_to_led_coordinate(self, x, y):
+        """将Pygame坐标转换为LED矩阵坐标"""
+        # 先转回相对坐标
+        graph_x = x / self.scale
+        graph_y = y / self.scale
+        # 再转为LED坐标
+        led_x = int(graph_x * self.led_scale_x + 2)
+        led_y = int(graph_y * self.led_scale_y + 2)
+        return led_x, led_y
+
+    def draw_led_from_pygame_surface(self):
+        """Read pixels from Pygame surface and display to LED matrix"""
+        self.matrix.Clear()
+        surface_array = pygame.surfarray.pixels3d(self.screen)
+        
+        # Iterate through the LED matrix
+        for led_y in range(self.matrix.height):
+            for led_x in range(self.matrix.width):
+                pygame_x = int(led_x * self.window_size[0] / self.matrix.width)
+                pygame_y = int(led_y * self.window_size[1] / self.matrix.height)
+                
+                if 0 <= pygame_x < surface_array.shape[0] and 0 <= pygame_y < surface_array.shape[1]:
+                    color = surface_array[pygame_x][pygame_y]
+                    led_color = tuple(int(c * 0.4) for c in color)
+                    self.matrix.SetPixel(led_x, led_y, *led_color)
+        
+        del surface_array  # Release the surface array
+
     
     def draw_edge(self, start, end, weight, color=None, progress=1.0):
 
@@ -156,5 +189,7 @@ class GraphVisualizer:
                 self.draw_edge(path[i], path[i+1], 0, self.PURPLE)
                 pygame.display.flip()
             return
+        
+        self.draw_led_from_pygame_surface()
         
         pygame.display.flip()

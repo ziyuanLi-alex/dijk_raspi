@@ -40,7 +40,7 @@ class LEDGraphVisualizer:
         self.PURPLE = (147, 0, 211)
         self.ORANGE = (255, 165, 0)
 
-    def scale_coordinates(self, x, y ):
+    def scale_coordinates(self, x, y):
         """将坐标转换为LED矩阵上的坐标"""
         return (int(x*self.scale_x+1), int(y*self.scale_y+1))
 
