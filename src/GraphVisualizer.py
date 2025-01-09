@@ -1,7 +1,7 @@
 import pygame
 import time
 from collections import namedtuple
-from dijkstra import unpickle_graph, get_stat_weight, DijkstraSimulator
+from dijkstra import get_stat_weight, DijkstraSimulator
 
 class GraphVisualizer:
     def __init__(self, graph, start_node, end_node,
