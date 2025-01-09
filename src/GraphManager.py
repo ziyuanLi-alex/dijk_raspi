@@ -275,7 +275,7 @@ def validate_hardcode():
     gm.start_node = (24, 8)
     gm.end_node = (24, 56)
 
-    # 保存图到文件
+    # 保存图到文件 
     gm.save_to_file('./assets/graphs/graph1.pkl')
 
     # import networkx as nx

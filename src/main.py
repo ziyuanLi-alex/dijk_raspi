@@ -1,7 +1,7 @@
 import pygame
 import time
 from collections import namedtuple
-from dijkstra import unpickle_graph, get_stat_weight, DijkstraSimulator
+from dijkstra import get_stat_weight, DijkstraSimulator
 from GraphManager import GraphManager
 
 DijkState = namedtuple('AlgorithmState', ['current_node', 'visited', 'current_path', 'processing_edge'])
