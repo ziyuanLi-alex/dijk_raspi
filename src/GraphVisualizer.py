@@ -42,7 +42,7 @@ class GraphVisualizer:
         self.GRAY = (128, 128, 128)
         self.PURPLE = (147, 0, 211)
         self.ORANGE = (255, 165, 0)  # 用于显示探索路径
-        self.WHITE_DIM = (100, 100, 100)  
+        self.WHITE_DIM = (80, 80, 80)  
 
         # LED矩阵初始化
         self.options = RGBMatrixOptions()
@@ -59,6 +59,49 @@ class GraphVisualizer:
         self.led_scale_x = (self.matrix.width - 4) / max_x
         self.led_scale_y = (self.matrix.height - 4) / max_y
 
+    def draw_edge_LED(self, start, end, color):
+        
+        """在LED矩阵上绘制边"""
+
+        # if color == self.WHITE:
+        #     color == self.WHITE_DIM
+    
+        x1, y1 = self.scale_coordinates_LED(*start)
+        x2, y2 = self.scale_coordinates_LED(*end)
+        
+        # 使用Bresenham算法绘制线段
+        dx = abs(x2 - x1)
+        dy = abs(y2 - y1)
+        steep = dy > dx
+        
+        if steep:
+            x1, y1 = y1, x1
+            x2, y2 = y2, x2
+            
+        if x1 > x2:
+            x1, x2 = x2, x1
+            y1, y2 = y2, y1
+            
+        dx = x2 - x1
+        dy = abs(y2 - y1)
+        error = dx // 2
+        y = y1
+        y_step = 1 if y1 < y2 else -1
+        
+        for x in range(x1, x2 + 1):
+            if steep:
+                self.matrix.SetPixel(y, x, *color)
+            else:
+                self.matrix.SetPixel(x, y, *color)
+            error -= dy
+            if error < 0:
+                y += y_step
+                error += dx
+
+    def scale_coordinates_LED(self, x, y):
+        """将坐标转换为LED矩阵上的坐标"""
+        return (int(x*self.led_scale_x+1), int(y*self.led_scale_y+1))
+    
     def draw_exploring_path(self, current_node, previous):
         """绘制正在探索的路径"""
         if not current_node:
@@ -75,7 +118,17 @@ class GraphVisualizer:
         # 绘制探索路径
         for i in range(len(exploring_path) - 1):
             self.draw_edge(exploring_path[i], exploring_path[i+1], 0, self.ORANGE)
+            self.draw_edge_LED(exploring_path[i], exploring_path[i+1], self.ORANGE)
 
+    
+    def draw_node_LED(self, pos, color):
+
+        x, y = self.scale_coordinates_LED(*pos)
+        self.matrix.SetPixel(x,y, *color)
+        self.matrix.SetPixel(x+1, y, *color)
+        self.matrix.SetPixel(x, y+1, *color)
+        self.matrix.SetPixel(x+1, y+1, *color)
+    
     def scale_coordinates(self, x, y):
         """Scale graph coordinates to screen coordinates"""
         return (x * self.scale + self.padding, y * self.scale + self.padding)
@@ -136,19 +189,20 @@ class GraphVisualizer:
 
     def draw_frame(self, algorithm_state):
         self.screen.fill(self.BLACK)
+        if not algorithm_state.current_path:
+            self.matrix.Clear() 
 
-        # 绘制基础图形
+        # 绘制基础图形(所有边)
         for start, edges in self.graph.items():
             for end, weight in edges:
                 if algorithm_state.processing_edge == (start, end):
                     continue
                 self.draw_edge(start, end, weight, self.WHITE)
+                self.draw_edge_LED(start, end, self.WHITE_DIM)
 
-        # 绘制路径
+        # 路径控制
         if algorithm_state.current_path:
             self.path_found = True
-
-
         elif algorithm_state.current_node:
             # 否则绘制探索路径
             self.draw_exploring_path(
@@ -169,6 +223,7 @@ class GraphVisualizer:
             else:
                 color = self.BLUE
             pygame.draw.circle(self.screen, color, self.scale_coordinates(*node), 4)
+            self.draw_node_LED(node, color)
 
         # 处理当前正在探索的边
         if algorithm_state.processing_edge:
@@ -177,19 +232,22 @@ class GraphVisualizer:
                 for i in range(0, 101, 30):
                     progress = i / 100.0
                     self.draw_edge(start, end, 0, self.YELLOW, progress=progress)
+                    self.draw_edge_LED(start, end, self.YELLOW)
                     pygame.display.flip()
                     # time.sleep(1/120)
 
         if self.path_found:
             # 只绘制最终状态
             path = algorithm_state.current_path
-            self.draw_edge(algorithm_state.processing_edge[0], algorithm_state.processing_edge[1], 0, self.WHITE)
+            self.draw_edge(algorithm_state.processing_edge[0], algorithm_state.processing_edge[1], 0, self.WHITE_DIM)
             pygame.display.flip()
             for i in range(len(path) - 1):
                 self.draw_edge(path[i], path[i+1], 0, self.PURPLE)
+                self.draw_edge_LED(path[i], path[i+1], self.PURPLE)
                 pygame.display.flip()
+            
             return
         
-        self.draw_led_from_pygame_surface()
+        # self.draw_led_from_pygame_surface()
         
         pygame.display.flip()
