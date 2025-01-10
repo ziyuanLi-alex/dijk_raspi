@@ -28,7 +28,8 @@ I used the Python wrapper provided by this library, and used it to control the L
 
 - Raspberry Pi 4B
 - a 64x64 LED array from Waveshare. More specific documentation can be found [here](https://www.waveshare.net/wiki/RGB-Matrix-P2.5-64x64)
-    The cost of such an LED array is about 130 CNY, as a reference. It is pretty affordable for a student project.
+
+The cost of such an LED array is about 130 CNY, as a reference. It is pretty affordable for a student project.
 
 ## Software 💻
 

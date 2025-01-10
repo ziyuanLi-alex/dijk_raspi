@@ -24,7 +24,7 @@ class LEDGraphVisualizer:
         self.start_node = start_node
         self.end_node = end_node
 
-         # 计算缩放比例，将图坐标映射到LED矩阵尺寸
+        # 计算缩放比例，将图坐标映射到LED矩阵尺寸
         max_x = max(node[0] for node in graph.keys())
         max_y = max(node[1] for node in graph.keys())
         self.scale_x = (self.matrix.width - 4) / max_x  # 留出边距
